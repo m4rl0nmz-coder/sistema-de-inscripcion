@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión - C.E. Lutecia Hernández</title>
+    
+    <!-- Librería Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Librería html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-hover: #1e40af;
+            --secondary: #059669;
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --text: #1f2937;
+            --border: #d1d5db;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* LOGIN */
+        .login-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        }
+
+        .login-card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .login-card h2 {
+            color: var(--primary);
+            margin-bottom: 5px;
+            font-size: 1.3rem;
+        }
+
+        .login-card p {
+            color: #6b7280;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+        }
+
+        /* APP MAIN */
+        .app-container {
+            display: none; /* Se activa tras login */
+            max-width: 1100px;
+            margin: 20px auto;
+            background: var(--surface);
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-info {
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* NAVEGACIÓN TAB */
+        .nav-tabs {
+            display: flex;
+            background: #e5e7eb;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #4b5563;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: var(--primary);
+            border-bottom: 3px solid var(--primary);
+        }
+
+        .tab-content {
+            padding: 25px;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* FORMULARIO Y TABLAS */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .form-group input, .form-group select {
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .section-title {
+            background: #eff6ff;
+            color: var(--primary);
+            padding: 6px 10px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            border-left: 4px solid var(--primary);
+            margin: 15px 0 10px 0;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 9px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .btn:hover { background-color: var(--primary-hover); }
+        .btn-success { background-color: var(--secondary); }
+        .btn-danger { background-color: #dc2626; }
+
+        /* BUSCADOR Y TABLA */
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 10px;
+            font-size: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 10px;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: #f8fafc;
+            color: var(--primary);
+        }
+
+        .card-result {
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-radius: 6px;
+            background: #f8fafc;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 1. PANTALLA DE INICIO DE SESIÓN -->
+<div id="loginScreen" class="login-screen">
+    <div class="login-card">
+        <h2>COMPLEJO EDUCATIVO<br>"LUTECIA HERNÁNDEZ"</h2>
+        <p>Seleccione su rol para ingresar al sistema</p>
+        <form id="loginForm" onsubmit="iniciarSesion(event)">
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Usuario / Rol</label>
+                <select id="userRole" required>
+                    <option value="">-- Seleccionar Rol --</option>
+                    <option value="Directora">Directora</option>
+                    <option value="Administrativo">Usuario Administrativo</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label>Contraseña</label>
+                <input type="password" id="userPass" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn" style="width: 100%;">Ingresar al Sistema</button>
+        </form>
+    </div>
+</div>
+
+<!-- 2. SISTEMA PRINCIPAL -->
+<div id="appContainer" class="app-container">
+    <header>
+        <div>
+            <h3 style="color: white; margin: 0;">C.E. LUTECIA HERNÁNDEZ</h3>
+            <small style="opacity: 0.8;">Tucupita – Estado Delta Amacuro</small>
+        </div>
+        <div class="user-info">
+            <span>Usuario: <strong id="displayUserRole"></strong></span>
+            <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="cerrarSesion()">Cerrar Sesión</button>
+        </div>
+    </header>
+
+    <!-- NAVEGACIÓN -->
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="cambiarTab('tabInscripcion', this)">📝 Nueva Inscripción</button>
+        <button class="tab-btn" onclick="cambiarTab('tabBuscar', this)">🔍 Buscar Alumno por Cédula</button>
+        <button class="tab-btn" onclick="cambiarTab('tabDirectorio', this)">📋 Directorio de Inscritos</button>
+    </div>
+
+    <!-- PESTAÑA 1: FORMULARIO DE INSCRIPCIÓN -->
+    <div id="tabInscripcion" class="tab-content active">
+        <form id="formInscripcion" onsubmit="guardarAlumno(event)">
+            <div class="grid">
+                <div class="form-group"><label>Nº Control</label><input type="text" id="n_control" placeholder="Ej: 001"></div>
+                <div class="form-group"><label>Año Escolar</label><input type="text" id="ano_escolar" value="2025-2026"></div>
+                <div class="form-group">
+                    <label>Grado</label>
+                    <select id="grado">
+                        <option value="1º">1º Grado</option><option value="2º">2º Grado</option>
+                        <option value="3º">3º Grado</option><option value="4º">4º Grado</option>
+                        <option value="5º">5º Grado</option><option value="6º">6º Grado</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Sección</label><input type="text" id="seccion" placeholder="A, B, C..."></div>
+            </div>
+
+            <div class="section-title">DATOS DEL ESTUDIANTE</div>
+            <div class="grid">
+                <div class="form-group"><label>Apellidos</label><input type="text" id="est_apellidos" required></div>
+                <div class="form-group"><label>Nombres</label><input type="text" id="est_nombres" required></div>
+                <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="est_fnac"></div>
+                <div class="form-group"><label>Lugar de Nacimiento</label><input type="text" id="est_lugar"></div>
+                <div class="form-group"><label>Cédula / C. Escolar</label><input type="text" id="est_cedula" required placeholder="Ej: 1102589632"></div>
+                <div class="form-group"><label>Estatura (cm)</label><input type="text" id="est_estatura"></div>
+                <div class="form-group"><label>Peso (kg)</label><input type="text" id="est_peso"></div>
+                <div class="form-group"><label>Nº Zapato</label><input type="text" id="est_zapato"></div>
+                <div class="form-group"><label>Talla Camisa</label><input type="text" id="est_camisa"></div>
+                <div class="form-group"><label>Talla Pantalón</label><input type="text" id="est_pantalon"></div>
+                <div class="form-group">
+                    <label>Procede de otra inst.</label>
+                    <select id="est_procede"><option value="No">No</option><option value="Sí">Sí</option></select>
+                </div>
+                <div class="form-group"><label>¿Cuál institución?</label><input type="text" id="est_institucion_ant"></div>
+            </div>
+            <div class="grid">
+                <div class="form-group" style="grid-column: span 2;"><label>Dirección Habitación</label><input type="text" id="est_direccion"></div>
+                <div class="form-group"><label>Teléfono</label><input type="text" id="est_telefono"></div>
+            </div>
+
+            <div class="section-title">ESTADO FÍSICO</div>
+            <div class="grid">
+                <div class="form-group"><label>Operado(a)</label><select id="salud_operado"><option value="No">No</option><option value="Sí">Sí</option></select></div>
+                <div class="form-group"><label>¿De qué?</label><input type="text" id="salud_operado_desc"></div>
+                <div class="form-group"><label>Alérgico</label><select id="salud_alergico"><option value="No">No</option><option value="Sí">Sí</option></select></div>
+                <div class="form-group"><label>¿A qué?</label><input type="text" id="salud_alergico_desc"></div>
+                <div class="form-group"><label>Asmático(a)</label><select id="salud_asmatico"><option value="No">No</option><option value="Sí">Sí</option></select></div>
+                <div class="form-group"><label>Usa aparatos</label><select id="salud_aparatos"><option value="No">No</option><option value="Sí">Sí</option></select></div>
+                <div class="form-group"><label>¿Cuál aparato?</label><input type="text" id="salud_aparatos_desc"></div>
+                <div class="form-group"><label>Medicamento diario</label><select id="salud_medicamento"><option value="No">No</option><option value="Sí">Sí</option></select></div>
+                <div class="form-group"><label>¿Cuál medicamento?</label><input type="text" id="salud_medicamento_desc"></div>
+                <div class="form-group"><label>Discapacidad</label><select id="salud_discapacidad"><option value="No">No</option><option value="Sí">Sí</option></select></div>
+                <div class="form-group"><label>Cual discapacidad</label><input type="text" id="salud_discapacidad_desc"></div>
+                <div class="form-group"><label>Informe Médico</label><input type="text" id="salud_informe"></div>
+            </div>
+
+            <div class="section-title">ACTITUDES Y ENTORNO</div>
+            <div class="grid">
+                <div class="form-group"><label>Deportes que practica</label><input type="text" id="act_deportes"></div>
+                <div class="form-group"><label>Actividades horas libres</label><input type="text" id="act_libres"></div>
+                <div class="form-group"><label>¿Colabora en el hogar?</label><select id="act_hogar"><option value="Sí">Sí</option><option value="No">No</option></select></div>
+                <div class="form-group"><label>¿Cuáles actividades?</label><input type="text" id="act_hogar_desc"></div>
+                <div class="form-group">
+                    <label>Hábitos de estudio</label>
+                    <select id="act_estudio">
+                        <option value="Le gusta por su cuenta">Le gusta por su cuenta</option>
+                        <option value="Hay que sugerirle">Hay que sugerirle</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>¿Permanece solo?</label><select id="act_solo"><option value="No">No</option><option value="Sí">Sí</option></select></div>
+                <div class="form-group"><label>¿Quién lo cuida?</label><input type="text" id="act_cuidador"></div>
+                <div class="form-group"><label>Cant. Hermanos</label><input type="number" id="act_hermanos_total" value="0"></div>
+                <div class="form-group"><label>Hermanas (F)</label><input type="number" id="act_hermanos_f" value="0"></div>
+                <div class="form-group"><label>Hermanos (M)</label><input type="number" id="act_hermanos_m" value="0"></div>
+            </div>
+
+            <div class="section-title">DATOS DEL REPRESENTANTE</div>
+            <div class="grid">
+                <div class="form-group"><label>Nombres y Apellidos</label><input type="text" id="rep_nombres" required></div>
+                <div class="form-group"><label>Sexo</label><select id="rep_sexo"><option value="F">F</option><option value="M">M</option></select></div>
+                <div class="form-group"><label>Cédula de Identidad</label><input type="text" id="rep_cedula" required></div>
+                <div class="form-group"><label>Parentesco</label><input type="text" id="rep_parentesco"></div>
+                <div class="form-group"><label>Grado de Instrucción</label><input type="text" id="rep_instruccion"></div>
+                <div class="form-group"><label>Profesión</label><input type="text" id="rep_profesion"></div>
+                <div class="form-group"><label>Oficio que desempeña</label><input type="text" id="rep_oficio"></div>
+                <div class="form-group">
+                    <label>Situación Laboral</label>
+                    <select id="rep_laboral">
+                        <option value="Empleado">Empleado</option>
+                        <option value="Desempleado">Desempleado</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Teléfono</label><input type="text" id="rep_telefono"></div>
+                <div class="form-group"><label>Sueldo que devenga</label><input type="text" id="rep_sueldo"></div>
+                <div class="form-group" style="grid-column: span 2;"><label>Dirección Habitación</label><input type="text" id="rep_direccion"></div>
+            </div>
+
+            <div class="section-title">VIVIENDA</div>
+            <div class="grid">
+                <div class="form-group">
+                    <label>Tipo de Vivienda</label>
+                    <select id="viv_tipo">
+                        <option value="Casa">Casa</option>
+                        <option value="Apto">Apto.</option>
+                        <option value="Rancho">Rancho</option>
+                        <option value="Quinta">Quinta</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Techo</label><input type="text" id="viv_techo"></div>
+                <div class="form-group"><label>Piso</label><input type="text" id="viv_piso"></div>
+                <div class="form-group"><label>Paredes</label><input type="text" id="viv_paredes"></div>
+                <div class="form-group">
+                    <label>Tenencia</label>
+                    <select id="viv_tenencia">
+                        <option value="Propia">Propia</option>
+                        <option value="Alquilada">Alquilada</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Servicios Posee</label>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <label><input type="checkbox" id="viv_agua" checked> Agua</label>
+                        <label><input type="checkbox" id="viv_luz" checked> Luz</label>
+                        <label><input type="checkbox" id="viv_aseo" checked> Aseo</label>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="submit" class="btn btn-success">💾 Guardar Alumno e Inscribir</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- PESTAÑA 2: BUSCAR ALUMNO POR CÉDULA -->
+    <div id="tabBuscar" class="tab-content">
+        <h3>Consulta Rápida de Inscritos</h3>
+        <p style="margin-bottom: 15px; color: #6b7280; font-size: 0.9rem;">Ingrese el número de cédula o cédula escolar del estudiante para consultar sus datos o exportar la planilla física.</p>
+        
+        <div class="search-box">
+            <input type="text" id="inputBuscarCedula" placeholder="Ingrese Cédula del alumno...">
+            <button class="btn" onclick="buscarPorCedula()">🔍 Buscar Alumno</button>
+        </div>
+
+        <div id="resultadoBusqueda"></div>
+    </div>
+
+    <!-- PESTAÑA 3: DIRECTORIO COMPLETO -->
+    <div id="tabDirectorio" class="tab-content">
+        <h3>Listado General de Inscripciones</h3>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cédula</th>
+                        <th>Estudiante</th>
+                        <th>Grado / Secc</th>
+                        <th>Representante</th>
+                        <th>Teléfono</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaAlumnosBody">
+                    <!-- Se llena dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+     PLANTILLA OCULTA: PLANILLA OFICIAL EXACTA
+     ========================================== -->
+<div id="plantilla-oficial-pdf" style="display: none; width: 100%; max-width: 800px; margin: 0 auto; padding: 10px; font-family: Arial, Helvetica, sans-serif; font-size: 11px; line-height: 1.3; color: #000; background: #fff;">
+    
+    <!-- ENCABEZADO -->
+    <div style="text-align: center; font-weight: bold; margin-bottom: 8px;">
+        <div>REPÚBLICA BOLIVARIANA DE VENEZUELA</div>
+        <div>COMPLEJO EDUCATIVO LUTECIA HERNÁNDEZ</div>
+        <div>TUCUPITA – EDO. DELTA AMACURO</div>
+        <div style="margin-top: 4px;">FECHA DE INSCRIPCIÓN DE BASICA I Y II ETAPA</div>
+    </div>
+
+    <!-- CONTROL Y GRADO -->
+    <div style="margin-bottom: 8px;">
+        Nº CONTROL: <span id="pdf-n-control" style="border-bottom: 1px solid #000; padding: 0 10px; font-weight: bold;"></span> 
+        AÑO ESCOLAR: <span id="pdf-ano-escolar" style="border-bottom: 1px solid #000; padding: 0 15px; font-weight: bold;"></span> 
+        GRADO: <span id="pdf-grado" style="border-bottom: 1px solid #000; padding: 0 10px; font-weight: bold;"></span> 
+        SECCION: <span id="pdf-seccion" style="border-bottom: 1px solid #000; padding: 0 10px; font-weight: bold;"></span>
+    </div>
+
+    <!-- DATOS DEL ESTUDIANTE -->
+    <div style="font-weight: bold; background: #eee; padding: 2px 4px; border: 1px solid #000;">DATOS DEL ESTUDIANTE:</div>
+    <div style="padding: 4px 0; border: 1px solid #000; border-top: none; margin-bottom: 8px;">
+        <div style="margin-bottom: 4px;">
+            Apellidos: <span id="pdf-est-apellidos" style="border-bottom: 1px solid #000; display: inline-block; width: 40%;"></span> 
+            Nombres: <span id="pdf-est-nombres" style="border-bottom: 1px solid #000; display: inline-block; width: 42%;"></span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            Fecha de Nacimiento: <span id="pdf-est-fnac" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Lugar: <span id="pdf-est-lugar" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Cédula: <span id="pdf-est-cedula" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Estatura: <span id="pdf-est-estatura" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Peso: <span id="pdf-est-peso" style="border-bottom: 1px solid #000; padding: 0 5px;"></span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            Nº Zapato: <span id="pdf-est-zapato" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Talla camisa: <span id="pdf-est-camisa" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Talla pantalón: <span id="pdf-est-pantalon" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Procede de otra institución: <span id="pdf-est-procede" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            ¿Cuál?: <span id="pdf-est-institucion-ant" style="border-bottom: 1px solid #000; display: inline-block; width: 30%;"></span>
+        </div>
+        <div>
+            Dirección de habitación: <span id="pdf-est-direccion" style="border-bottom: 1px solid #000; display: inline-block; width: 55%;"></span> 
+            Telefono: <span id="pdf-est-telefono" style="border-bottom: 1px solid #000; display: inline-block; width: 20%;"></span>
+        </div>
+    </div>
+
+    <!-- ESTADO FÍSICO -->
+    <div style="font-weight: bold; background: #eee; padding: 2px 4px; border: 1px solid #000;">ESTADO FÍSICO:</div>
+    <div style="padding: 4px 0; border: 1px solid #000; border-top: none; margin-bottom: 8px;">
+        <div style="margin-bottom: 4px;">
+            Operado(a): <span id="pdf-salud-operado" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            ¿De qué?: <span id="pdf-salud-operado-desc" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Alérgico: <span id="pdf-salud-alergico" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            ¿A qué?: <span id="pdf-salud-alergico-desc" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Asmático(a): <span id="pdf-salud-asmatico" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Usa aparatos: <span id="pdf-salud-aparatos" style="border-bottom: 1px solid #000; padding: 0 5px;"></span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            ¿Cuál?: <span id="pdf-salud-aparatos-desc" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            ¿Usa algún medicamento diario?: <span id="pdf-salud-medicamento" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            ¿Cuál?: <span id="pdf-salud-medicamento-desc" style="border-bottom: 1px solid #000; display: inline-block; width: 40%;"></span>
+        </div>
+        <div>
+            Discapacidad: <span id="pdf-salud-discapacidad" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Cual: <span id="pdf-salud-discapacidad-desc" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Informe Médico: <span id="pdf-salud-informe" style="border-bottom: 1px solid #000; display: inline-block; width: 45%;"></span>
+        </div>
+    </div>
+
+    <!-- ACTITUDES -->
+    <div style="font-weight: bold; background: #eee; padding: 2px 4px; border: 1px solid #000;">ACTITUDES QUE FACILITAN EL PROCESO DE ENSEÑANZA:</div>
+    <div style="padding: 4px 0; border: 1px solid #000; border-top: none; margin-bottom: 8px;">
+        <div style="margin-bottom: 4px;">Deportes que practica: <span id="pdf-act-deportes" style="border-bottom: 1px solid #000; display: inline-block; width: 80%;"></span></div>
+        <div style="margin-bottom: 4px;">Actividades que realiza en horas libres: <span id="pdf-act-libres" style="border-bottom: 1px solid #000; display: inline-block; width: 70%;"></span></div>
+        <div style="margin-bottom: 4px;">
+            Colabora con actividades del hogar: <span id="pdf-act-hogar" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            ¿Cuáles?: <span id="pdf-act-hogar-desc" style="border-bottom: 1px solid #000; display: inline-block; width: 60%;"></span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            Le gusta estudiar por su cuenta: <span id="pdf-act-cuenta" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Hay que sugerirle que estudie: <span id="pdf-act-sugerir" style="border-bottom: 1px solid #000; padding: 0 5px;"></span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            Permanece mucho tiempo solo: <span id="pdf-act-solo" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            ¿Quién lo cuida?: <span id="pdf-act-cuidador" style="border-bottom: 1px solid #000; display: inline-block; width: 60%;"></span>
+        </div>
+        <div>
+            Cuantos hermanos tiene: <span id="pdf-act-hermanos-total" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            F ( ) <span id="pdf-act-hermanos-f" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            M ( ) <span id="pdf-act-hermanos-m" style="border-bottom: 1px solid #000; padding: 0 5px;"></span>
+        </div>
+    </div>
+
+    <!-- DATOS DEL REPRESENTANTE -->
+    <div style="font-weight: bold; background: #eee; padding: 2px 4px; border: 1px solid #000;">DATOS DEL REPRESENTANTE:</div>
+    <div style="padding: 4px 0; border: 1px solid #000; border-top: none; margin-bottom: 8px;">
+        <div style="margin-bottom: 4px;">
+            Apellidos y Nombres: <span id="pdf-rep-nombres" style="border-bottom: 1px solid #000; display: inline-block; width: 50%;"></span> 
+            Sexo: <span id="pdf-rep-sexo" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Cédula de identidad: <span id="pdf-rep-cedula" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Parentesco: <span id="pdf-rep-parentesco" style="border-bottom: 1px solid #000; padding: 0 5px;"></span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            Grado de instrucción: <span id="pdf-rep-instruccion" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Profesión: <span id="pdf-rep-profesion" style="border-bottom: 1px solid #000; padding: 0 5px;"></span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            Oficio que desempeña: <span id="pdf-rep-oficio" style="border-bottom: 1px solid #000; display: inline-block; width: 40%;"></span> 
+            Desempleado: <span id="pdf-rep-desempleado" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Empleado: <span id="pdf-rep-empleado" style="border-bottom: 1px solid #000; padding: 0 5px;"></span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            Teléfono: <span id="pdf-rep-telefono" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Sueldo que devenga: <span id="pdf-rep-sueldo" style="border-bottom: 1px solid #000; padding: 0 5px;"></span>
+        </div>
+        <div>
+            Dirección de habitación: <span id="pdf-rep-direccion" style="border-bottom: 1px solid #000; display: inline-block; width: 80%;"></span>
+        </div>
+    </div>
+
+    <!-- VIVIENDA -->
+    <div style="font-weight: bold; background: #eee; padding: 2px 4px; border: 1px solid #000;">VIVIENDA:</div>
+    <div style="padding: 4px 0; border: 1px solid #000; border-top: none; margin-bottom: 25px;">
+        <div style="margin-bottom: 4px;">
+            Casa: <span id="pdf-viv-casa" style="font-weight:bold;">___</span> &nbsp;&nbsp;&nbsp; 
+            Apto.: <span id="pdf-viv-apto" style="font-weight:bold;">___</span> &nbsp;&nbsp;&nbsp; 
+            Rancho: <span id="pdf-viv-rancho" style="font-weight:bold;">___</span> &nbsp;&nbsp;&nbsp; 
+            Quinta: <span id="pdf-viv-quinta" style="font-weight:bold;">___</span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            Condición de vivienda: 
+            Techo: <span id="pdf-viv-techo" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Piso: <span id="pdf-viv-piso" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Paredes: <span id="pdf-viv-paredes" style="border-bottom: 1px solid #000; padding: 0 5px;"></span> 
+            Propia: <span id="pdf-viv-propia" style="font-weight:bold;">___</span> 
+            Alquilada: <span id="pdf-viv-alquilada" style="font-weight:bold;">___</span> 
+            Otros: <span id="pdf-viv-otros" style="font-weight:bold;">___</span>
+        </div>
+        <div>
+            Posee: 
+            Agua <span id="pdf-viv-agua" style="font-weight:bold;">___</span> &nbsp;&nbsp; 
+            Luz <span id="pdf-viv-luz" style="font-weight:bold;">___</span> &nbsp;&nbsp; 
+            Aseo <span id="pdf-viv-aseo" style="font-weight:bold;">___</span>
+        </div>
+    </div>
+
+    <!-- FIRMAS -->
+    <div style="display: flex; justify-content: space-between; text-align: center; font-size: 10px; margin-top: 30px;">
+        <div style="width: 35%;">
+            <div style="border-top: 1px solid #000; padding-top: 2px;">DOCENTE QUE REALIZÓ LA INSCRIPCIÓN</div>
+            <div style="margin-top: 5px;">C.I: ____________________</div>
+        </div>
+        <div style="width: 20%; align-self: flex-end;">
+            SELLO
+        </div>
+        <div style="width: 35%;">
+            <div style="border-top: 1px solid #000; padding-top: 2px;">REPRESENTANTE</div>
+            <div style="margin-top: 5px;">C.I.: ____________________</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- LÓGICA JAVASCRIPT CONECTADA A SUPABASE Y NOMBRES REALES DE COLUMNAS -->
+<script>
+// 1. INICIALIZAR SUPABASE
+const supabaseUrl = 'https://ymqewjgrmtdnxddlwpis.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltcWV3amdybXRkbnhkZGx3cGlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNDI2NjQsImV4cCI6MjA5OTgxODY2NH0.VDe0l5XQ6gekmrJqe_fXFtbjsl6GhLtfvdFSAvjX_DA';
+const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+let usuarioActual = null;
+const TABLA_SUPABASE = 'planilla de inscripción'; // Nombre exacto de tu tabla en Supabase
+
+// LOGIN
+function iniciarSesion(e) {
+    e.preventDefault();
+    const role = document.getElementById('userRole').value;
+    usuarioActual = role;
+    
+    document.getElementById('displayUserRole').innerText = role;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appContainer').style.display = 'block';
+    
+    actualizarTablaDirectorio();
+}
+
+function cerrarSesion() {
+    usuarioActual = null;
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('appContainer').style.display = 'none';
+    document.getElementById('loginForm').reset();
+}
+
+// NAVEGACIÓN PESTAÑAS
+function cambiarTab(tabId, element) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    
+    document.getElementById(tabId).classList.add('active');
+    element.classList.add('active');
+
+    if (tabId === 'tabDirectorio') {
+        actualizarTablaDirectorio();
+    }
+}
+
+// GUARDAR ALUMNO EN SUPABASE
+async function guardarAlumno(e) {
+    e.preventDefault();
+    
+    const cedulaInput = document.getElementById('est_cedula').value.trim();
+
+    // Validar si ya existe en Supabase (buscando por la columna "Cedula")
+    const { data: existente } = await _supabase
+        .from(TABLA_SUPABASE)
+        .select('"Cedula"')
+        .eq('Cedula', cedulaInput)
+        .maybeSingle();
+
+    if (existente) {
+        alert('⚠️ Ya existe un estudiante registrado con esta Cédula / Escolar.');
+        return;
+    }
+
+    // MAPEO EXACTO A LAS COLUMNAS SQL DE TU BASE DE DATOS
+    const nuevoAlumno = {
+        "numero de control": document.getElementById('n_control').value,
+        "Año escolar": document.getElementById('ano_escolar').value,
+        "Grado": document.getElementById('grado').value,
+        "Seccion": document.getElementById('seccion').value,
+        "Apellidos": document.getElementById('est_apellidos').value,
+        "Nombres": document.getElementById('est_nombres').value,
+        "Fecha de nacimiento": document.getElementById('est_fnac').value || null,
+        "Lugar de nacimiento": document.getElementById('est_lugar').value,
+        "Cedula": cedulaInput,
+        "Estatura": parseFloat(document.getElementById('est_estatura').value) || null,
+        "Peso": parseFloat(document.getElementById('est_peso').value) || null,
+        "numero de zapato": document.getElementById('est_zapato').value,
+        "Talla camisa": document.getElementById('est_camisa').value,
+        "Talla pantalon": document.getElementById('est_pantalon').value,
+        "Procede de otra institucion": document.getElementById('est_procede').value,
+        "institucion de origen": document.getElementById('est_institucion_ant').value,
+        "Direccion de habitacion": document.getElementById('est_direccion').value,
+        "Telefono": document.getElementById('est_telefono').value,
+        
+        "Operado": document.getElementById('salud_operado').value,
+        "De que esta operado": document.getElementById('salud_operado_desc').value,
+        "Tiene alergia": document.getElementById('salud_alergico').value,
+        "A que es alergico": document.getElementById('salud_alergico_desc').value,
+        "es asmatico": document.getElementById('salud_asmatico').value,
+        "Usa aparatos": document.getElementById('salud_aparatos').value,
+        "Cual aparato usa": document.getElementById('salud_aparatos_desc').value,
+        "Usa medicamentos diarios": document.getElementById('salud_medicamento').value,
+        "cual medicamento diario usa": document.getElementById('salud_medicamento_desc').value,
+        "Discapacidad": document.getElementById('salud_discapacidad').value,
+        "cual discapacidad tiene": document.getElementById('salud_discapacidad_desc').value,
+        "Informe medico": document.getElementById('salud_informe').value,
+        
+        "Deportes que practica": document.getElementById('act_deportes').value,
+        "Actividades que realiza en horas libres": document.getElementById('act_libres').value,
+        "Colabora en el hogar": document.getElementById('act_hogar').value,
+        "como ayuda en el hogar": document.getElementById('act_hogar_desc').value,
+        "Le gusta estudiar por su cuenta": document.getElementById('act_estudio').value === 'Le gusta por su cuenta' ? 'Sí' : 'No',
+        "hay que sugerirle que estudie": document.getElementById('act_estudio').value === 'Hay que sugerirle' ? 'Sí' : 'No',
+        "Permanece mucho tiempo solo": document.getElementById('act_solo').value,
+        "Quien lo cuida": document.getElementById('act_cuidador').value,
+        "Cuantos hermanos tiene": document.getElementById('act_hermanos_total').value,
+        "Hermanas": parseInt(document.getElementById('act_hermanos_f').value) || null,
+        "Hermanos": parseInt(document.getElementById('act_hermanos_m').value) || null,
+        
+        "Apellidos y nombre del representante": document.getElementById('rep_nombres').value,
+        "Sexo del representante": document.getElementById('rep_sexo').value,
+        "Cedula del representante": document.getElementById('rep_cedula').value,
+        "Parentesco con el niño": document.getElementById('rep_parentesco').value,
+        "grado de instruccion del representante": document.getElementById('rep_instruccion').value,
+        "Profesion del representante": document.getElementById('rep_profesion').value,
+        "Oficio que desempeña el representante": document.getElementById('rep_oficio').value,
+        "es desempleado": document.getElementById('rep_laboral').value === 'Desempleado' ? 'Sí' : 'No',
+        "es empleado": document.getElementById('rep_laboral').value === 'Empleado' ? 'Sí' : 'No',
+        "telefono del representate": document.getElementById('rep_telefono').value,
+        "Sueldo que devenga": document.getElementById('rep_sueldo').value,
+        "Direccion de habitacion del representante": document.getElementById('rep_direccion').value,
+        
+        "tipo de vivienda": document.getElementById('viv_tipo').value,
+        "techo de la vivienda": document.getElementById('viv_techo').value,
+        "piso de la vivienda": document.getElementById('viv_piso').value,
+        "paredes de la vivienda": document.getElementById('viv_paredes').value,
+        "tenencia de vivienda": document.getElementById('viv_tenencia').value,
+        "posee agua": document.getElementById('viv_agua').checked ? 'Sí' : 'No',
+        "posee luz": document.getElementById('viv_luz').checked ? 'Sí' : 'No',
+        "posee aseo": document.getElementById('viv_aseo').checked ? 'Sí' : 'No'
+    };
+
+    const { error } = await _supabase.from(TABLA_SUPABASE).insert([nuevoAlumno]);
+
+    if (error) {
+        console.error('Error al insertar:', error);
+        alert('❌ Ocurrió un error al guardar en la base de datos: ' + error.message);
+    } else {
+        alert('✅ ¡Alumno inscrito correctamente!');
+        document.getElementById('formInscripcion').reset();
+        actualizarTablaDirectorio();
+    }
+}
+
+// BUSCAR POR CÉDULA EN SUPABASE
+async function buscarPorCedula() {
+    const cedulaInput = document.getElementById('inputBuscarCedula').value.trim();
+    const contenedor = document.getElementById('resultadoBusqueda');
+    
+    if (!cedulaInput) {
+        contenedor.innerHTML = '<p style="color:red;">Por favor ingrese una cédula para buscar.</p>';
+        return;
+    }
+
+    const { data: alumno, error } = await _supabase
+        .from(TABLA_SUPABASE)
+        .select('*')
+        .eq('Cedula', cedulaInput)
+        .maybeSingle();
+
+    if (error) {
+        console.error(error);
+        contenedor.innerHTML = '<p style="color:red;">Error al realizar la búsqueda.</p>';
+        return;
+    }
+
+    if (alumno) {
+        contenedor.innerHTML = `
+            <div class="card-result">
+                <h4>🎓 ${alumno["Apellidos"]}, ${alumno["Nombres"]}</h4>
+                <p><strong>Cédula:</strong> ${alumno["Cedula"]} | <strong>Grado:</strong> ${alumno["Grado"]} "${alumno["Seccion"]}"</p>
+                <p><strong>Representante:</strong> ${alumno["Apellidos y nombre del representante"]} (${alumno["telefono del representate"] || 'Sin telf'})</p>
+                <div style="margin-top: 10px;">
+                    <button class="btn btn-success" onclick='prepararEImprimirPDF(${JSON.stringify(alumno)})'>📄 Generar Planilla PDF Oficial</button>
+                </div>
+            </div>
+        `;
+    } else {
+        contenedor.innerHTML = `<p style="color:red; margin-top:10px;">❌ No se encontró ningún estudiante con la Cédula: <strong>${cedulaInput}</strong></p>`;
+    }
+}
+
+// ACTUALIZAR DIRECTORIO DESDE SUPABASE
+async function actualizarTablaDirectorio() {
+    const tbody = document.getElementById('tablaAlumnosBody');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Cargando estudiantes...</td></tr>';
+
+    const { data: alumnos, error } = await _supabase
+        .from(TABLA_SUPABASE)
+        .select('*')
+        .order('id', { ascending: false });
+
+    if (error) {
+        console.error(error);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Error al cargar datos.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '';
+
+    if (!alumnos || alumnos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay alumnos inscritos aún.</td></tr>';
+        return;
+    }
+
+    alumnos.forEach(alumno => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${alumno["Cedula"]}</td>
+            <td>${alumno["Apellidos"]}, ${alumno["Nombres"]}</td>
+            <td>${alumno["Grado"]} - "${alumno["Seccion"]}"</td>
+            <td>${alumno["Apellidos y nombre del representante"]}</td>
+            <td>${alumno["telefono del representate"] || '-'}</td>
+            <td>
+                <button class="btn btn-success" style="padding:4px 8px; font-size:0.8rem;" onclick='prepararEImprimirPDF(${JSON.stringify(alumno)})'>📄 PDF</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// EXPORTACIÓN PDF
+function prepararEImprimirPDF(alumno) {
+    document.getElementById('pdf-n-control').innerText = alumno["numero de control"] || '_______';
+    document.getElementById('pdf-ano-escolar').innerText = alumno["Año escolar"] || '_____________';
+    document.getElementById('pdf-grado').innerText = alumno["Grado"] || '_____';
+    document.getElementById('pdf-seccion').innerText = alumno["Seccion"] || '_____';
+
+    document.getElementById('pdf-est-apellidos').innerText = alumno["Apellidos"] || '';
+    document.getElementById('pdf-est-nombres').innerText = alumno["Nombres"] || '';
+    document.getElementById('pdf-est-fnac').innerText = alumno["Fecha de nacimiento"] || '';
+    document.getElementById('pdf-est-lugar').innerText = alumno["Lugar de nacimiento"] || '';
+    document.getElementById('pdf-est-cedula').innerText = alumno["Cedula"] || '';
+    document.getElementById('pdf-est-estatura').innerText = alumno["Estatura"] || '';
+    document.getElementById('pdf-est-peso').innerText = alumno["Peso"] || '';
+    document.getElementById('pdf-est-zapato').innerText = alumno["numero de zapato"] || '';
+    document.getElementById('pdf-est-camisa').innerText = alumno["Talla camisa"] || '';
+    document.getElementById('pdf-est-pantalon').innerText = alumno["Talla pantalon"] || '';
+    document.getElementById('pdf-est-procede').innerText = alumno["Procede de otra institucion"] || '';
+    document.getElementById('pdf-est-institucion-ant').innerText = alumno["institucion de origen"] || '';
+    document.getElementById('pdf-est-direccion').innerText = alumno["Direccion de habitacion"] || '';
+    document.getElementById('pdf-est-telefono').innerText = alumno["Telefono"] || '';
+
+    document.getElementById('pdf-salud-operado').innerText = alumno["Operado"] || '';
+    document.getElementById('pdf-salud-operado-desc').innerText = alumno["De que esta operado"] || '';
+    document.getElementById('pdf-salud-alergico').innerText = alumno["Tiene alergia"] || '';
+    document.getElementById('pdf-salud-alergico-desc').innerText = alumno["A que es alergico"] || '';
+    document.getElementById('pdf-salud-asmatico').innerText = alumno["es asmatico"] || '';
+    document.getElementById('pdf-salud-aparatos').innerText = alumno["Usa aparatos"] || '';
+    document.getElementById('pdf-salud-aparatos-desc').innerText = alumno["Cual aparato usa"] || '';
+    document.getElementById('pdf-salud-medicamento').innerText = alumno["Usa medicamentos diarios"] || '';
+    document.getElementById('pdf-salud-medicamento-desc').innerText = alumno["cual medicamento diario usa"] || '';
+    document.getElementById('pdf-salud-discapacidad').innerText = alumno["Discapacidad"] || '';
+    document.getElementById('pdf-salud-discapacidad-desc').innerText = alumno["cual discapacidad tiene"] || '';
+    document.getElementById('pdf-salud-informe').innerText = alumno["Informe medico"] || '';
+
+    document.getElementById('pdf-act-deportes').innerText = alumno["Deportes que practica"] || '';
+    document.getElementById('pdf-act-libres').innerText = alumno["Actividades que realiza en horas libres"] || '';
+    document.getElementById('pdf-act-hogar').innerText = alumno["Colabora en el hogar"] || '';
+    document.getElementById('pdf-act-hogar-desc').innerText = alumno["como ayuda en el hogar"] || '';
+    
+    document.getElementById('pdf-act-cuenta').innerText = alumno["Le gusta estudiar por su cuenta"] || '';
+    document.getElementById('pdf-act-sugerir').innerText = alumno["hay que sugerirle que estudie"] || '';
+    
+    document.getElementById('pdf-act-solo').innerText = alumno["Permanece mucho tiempo solo"] || '';
+    document.getElementById('pdf-act-cuidador').innerText = alumno["Quien lo cuida"] || '';
+    document.getElementById('pdf-act-hermanos-total').innerText = alumno["Cuantos hermanos tiene"] || 0;
+    document.getElementById('pdf-act-hermanos-f').innerText = alumno["Hermanas"] || 0;
+    document.getElementById('pdf-act-hermanos-m').innerText = alumno["Hermanos"] || 0;
+
+    document.getElementById('pdf-rep-nombres').innerText = alumno["Apellidos y nombre del representante"] || '';
+    document.getElementById('pdf-rep-sexo').innerText = alumno["Sexo del representante"] || '';
+    document.getElementById('pdf-rep-cedula').innerText = alumno["Cedula del representante"] || '';
+    document.getElementById('pdf-rep-parentesco').innerText = alumno["Parentesco con el niño"] || '';
+    document.getElementById('pdf-rep-instruccion').innerText = alumno["grado de instruccion del representante"] || '';
+    document.getElementById('pdf-rep-profesion').innerText = alumno["Profesion del representante"] || '';
+    document.getElementById('pdf-rep-oficio').innerText = alumno["Oficio que desempeña el representante"] || '';
+    
+    document.getElementById('pdf-rep-desempleado').innerText = alumno["es desempleado"] || '';
+    document.getElementById('pdf-rep-empleado').innerText = alumno["es empleado"] || '';
+    
+    document.getElementById('pdf-rep-telefono').innerText = alumno["telefono del representate"] || '';
+    document.getElementById('pdf-rep-sueldo').innerText = alumno["Sueldo que devenga"] || '';
+    document.getElementById('pdf-rep-direccion').innerText = alumno["Direccion de habitacion del representante"] || '';
+
+    document.getElementById('pdf-viv-casa').innerText = (alumno["tipo de vivienda"] === 'Casa') ? 'X' : '___';
+    document.getElementById('pdf-viv-apto').innerText = (alumno["tipo de vivienda"] === 'Apto') ? 'X' : '___';
+    document.getElementById('pdf-viv-rancho').innerText = (alumno["tipo de vivienda"] === 'Rancho') ? 'X' : '___';
+    document.getElementById('pdf-viv-quinta').innerText = (alumno["tipo de vivienda"] === 'Quinta') ? 'X' : '___';
+    
+    document.getElementById('pdf-viv-techo').innerText = alumno["techo de la vivienda"] || '_____';
+    document.getElementById('pdf-viv-piso').innerText = alumno["piso de la vivienda"] || '_____';
+    document.getElementById('pdf-viv-paredes').innerText = alumno["paredes de la vivienda"] || '_____';
+    
+    document.getElementById('pdf-viv-propia').innerText = (alumno["tenencia de vivienda"] === 'Propia') ? 'X' : '___';
+    document.getElementById('pdf-viv-alquilada').innerText = (alumno["tenencia de vivienda"] === 'Alquilada') ? 'X' : '___';
+    document.getElementById('pdf-viv-otros').innerText = (alumno["tenencia de vivienda"] === 'Otros') ? 'X' : '___';
+
+    document.getElementById('pdf-viv-agua').innerText = (alumno["posee agua"] === 'Sí') ? 'X' : '___';
+    document.getElementById('pdf-viv-luz').innerText = (alumno["posee luz"] === 'Sí') ? 'X' : '___';
+    document.getElementById('pdf-viv-aseo').innerText = (alumno["posee aseo"] === 'Sí') ? 'X' : '___';
+
+    // Generar PDF
+    const plantilla = document.getElementById('plantilla-oficial-pdf');
+    plantilla.style.display = 'block';
+
+    const opciones = {
+        margin:       [6, 8, 6, 8],
+        filename:     `Planilla_Oficial_${alumno["Cedula"]}_${alumno["Apellidos"]}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'legal', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opciones).from(plantilla).save().then(() => {
+        plantilla.style.display = 'none';
+    });
+}
+</script>
+
+</body>
+</html>
